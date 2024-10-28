@@ -8,133 +8,54 @@
 #include <format>
 #include <chrono>
 
-std::binary_semaphore empty{ 1 };
-std::binary_semaphore fs{ 0 };//son
-std::binary_semaphore fd{ 0 };//daughter
-std::mutex mute;
+std::binary_semaphore l2r{ 1 };//left to right
+std::binary_semaphore r2l{ 1 };//right to left
 
-int p = 0;
-int cnt = 0;
-int cnt_s = 0;
-int cnt_d = 0;
+int place = 0;
+int l2r_in = 0;
 
 std::random_device rd;
 std::mt19937 gen(rd());
 std::uniform_int_distribution<> distrib(1, 2);
 
-static void Father()
+static void Left2Right(int cnt)
 {
-	while (1)
+	for (int i = 0; i < cnt; i++)
 	{
-		empty.acquire();
-		mute.lock();
-		if (cnt == 100)
+		l2r.acquire();
+		l2r_in++;
+		if (l2r_in == 1)
 		{
-			fs.release();
-			fd.release();
-			mute.unlock();
-			cnt++;
-			break;
+			r2l.acquire();
 		}
-		else cnt++;
-		if (p != 0) {
-			std::cout << "ERROR: Plate is not empty." <<std::endl;
-			throw std::exception("UNEXCEPT_NOT_EMPTY");
+		l2r.release();
+		std::cout << "left to right in." << std::endl;
+		l2r.acquire();
+		l2r_in--;
+		if (l2r_in == 0)
+		{
+			r2l.release();
 		}
-		p = distrib(gen) - 1 ? orange : apple;
-		std::cout << std::format("Father puts {}.", p == orange ? "orange" : "apple") << std::endl;
-		if (p == orange) fs.release();
-		else fd.release();
-		mute.unlock();
-
+		l2r.release();
 	}
 }
 
-static void Son()
+static void Right2Left(int cnt)
 {
-	while (1)
+	for (int i = 0; i < cnt; i++)
 	{
-		fs.acquire();
-		mute.lock();
-		if (cnt == 101)
-		{
-			mute.unlock();
-			break;
-		}
-		if (p == 0)
-		{
-			std::cout << "ERROR: Son gets nothing." << std::endl;
-			throw std::exception("UNEXCEPT_EMPTY");
-		}
-		p = 0;
-		std::cout << "Son gets orange." << std::endl;
-		cnt_s++;
-		empty.release();
-		mute.unlock();
-		//eating
-	}
-}
-
-static void Daughter()
-{
-	while (1)
-	{
-		fd.acquire();
-		mute.lock();
-		if (cnt == 101)
-		{
-			mute.unlock();
-			break;
-		}
-		if (p == 0)
-		{
-			std::cout << "ERROR: Daughter gets nothing." << std::endl;
-			throw std::exception("UNEXCEPT_EMPTY");
-		}
-		p = 0;
-		std::cout << "Daughter gets apple." << std::endl;
-		cnt_d++;
-		empty.release();
-		mute.unlock();
-		//eating
+		r2l.acquire();
+		std::cout << "right to left in." << std::endl;
+		r2l.release();
 	}
 }
 
 int main()
 {
-	std::set_terminate([]()
-		{
-			try
-			{
-				std::exception_ptr eptr{ std::current_exception() };
-				if (eptr)
-				{
-					std::rethrow_exception(eptr);
-				}
-				else
-				{
-					std::cerr << "no exception\n";
-				}
-			}
-			catch (const std::exception& ex)
-			{
-				std::cerr << "exception:" << ex.what() << '\n';
-			}
-			catch (...)
-			{
-				std::cerr << "unknown exception\n";
-			}
-			std::exit(EXIT_FAILURE);
-		});
-
-	std::thread father(Father);
-	std::thread son(Son);
-	std::thread daughter(Daughter);
+	std::thread right2left(Right2Left,20);
+	std::thread left2right(Left2Right,20);
 
 	std::this_thread::sleep_for(std::chrono::seconds(2));
-	father.join();
-	son.join();
-	daughter.join();
-
-	std::cout << std::format("Father puts {}, son gets {}, daughter gets {}.", cnt - 1, cnt_s, cnt_d);
+	left2right.join();
+	right2left.join();
 }
