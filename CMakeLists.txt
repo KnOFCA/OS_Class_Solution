@@ -9,3 +9,4 @@ project ("OS_Class_Solution")
 
 add_subdirectory ("Solution1")
 add_subdirectory ("Solution2")
+add_subdirectory ("Solution3")
