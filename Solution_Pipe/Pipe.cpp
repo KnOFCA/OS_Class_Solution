@@ -51,5 +51,7 @@ int main() {
     WaitForSingleObject(pi.hProcess, INFINITE);
     CloseHandle(pi.hProcess);
 
+    getchar();
+
     return 0;
 }
